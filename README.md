@@ -21,7 +21,7 @@ flowchart TD
   B -->|responder| C[responder]
   B -->|ejecutar| D[ejecutar]
   B -->|escalar| E[escalar]
-  C --> F[(RAG<br/>docs/*.md)]
+  C --> F[(RAG<br/>docs/*.md, *.txt)]
   C -->|sin contexto suficiente| E
   D --> G[Servidor MCP<br/>consultar_calendario<br/>redactar_borrador]
   D -->|sin herramienta o error| E
@@ -35,7 +35,7 @@ Las rutas de esta sección son relativas a `back/`.
 
 - **Orquestador** (`src/graph.ts`): un `StateGraph` de LangGraph.js con los nodos `classify`, `respond`, `execute` y `escalate`. Cada consulta queda registrada una sola vez en `src/log.ts`.
 - **RAG** (`src/rag/`):
-  - Al arrancar, fragmenta los `.md` de `docs/` en partes de 500 caracteres con 80 de solapamiento.
+  - Al arrancar, fragmenta los `.md` y `.txt` de `docs/` en partes de 500 caracteres con 80 de solapamiento.
   - Los embeddings se generan localmente con `Xenova/multilingual-e5-small` (Transformers.js), así que no hacen falta API key ni hay límites de uso.
   - Los vectores se guardan en un vector store en memoria.
 - **MCP** (`src/mcp/`):
@@ -60,7 +60,7 @@ Node.js + TypeScript (ESM) · Express · LangGraph.js · LangChain.js · `@model
 
 ## Cómo levantarlo
 
-Requisitos: Node.js 20.10+ (probado con 24) y una API key de [OpenRouter](https://openrouter.ai/settings/keys).
+Requisitos: Node.js 20.10+ (probado con 24) y una API key de un proveedor compatible con la API de OpenAI, por ejemplo [Google AI Studio](https://aistudio.google.com/apikey) u [OpenRouter](https://openrouter.ai/settings/keys).
 
 ```bash
 cd back
@@ -73,11 +73,16 @@ Variables de entorno:
 
 ```
 PORT=3000
-OPENROUTER_API_KEY=sk-or-v1-...
-OPENROUTER_MODEL=nvidia/nemotron-3-super-120b-a12b:free
+
+# Google AI Studio (Gemini)
+LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+LLM_API_KEY=AIza...
+LLM_MODEL=gemini-flash-latest
 ```
 
-El modelo tiene que soportar **tool calling**. Se probó con `nvidia/nemotron-3-super-120b-a12b:free`. Los modelos `:free` tienen límites de pedidos por minuto y por día.
+Si `LLM_BASE_URL` no está definida, se usa OpenRouter (`https://openrouter.ai/api/v1`). Por compatibilidad, `OPENROUTER_API_KEY` y `OPENROUTER_MODEL` se usan cuando no hay `LLM_API_KEY` ni `LLM_MODEL`.
+
+El modelo tiene que soportar **tool calling**. Se probó con `gemini-flash-latest` (Google AI Studio) y con `nvidia/nemotron-3-super-120b-a12b:free` (OpenRouter). Los planes gratuitos tienen límites de pedidos por minuto y por día.
 
 El primer arranque descarga el modelo de embeddings, que tarda alrededor de un minuto. Los siguientes arranques tardan unos segundos.
 
