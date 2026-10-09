@@ -1,33 +1,13 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import * as z from "zod/v4";
+import { buildCalendar, buildDraft, listCalendarEvents } from "./tools.js";
 
 // stdout is reserved for the JSON-RPC transport: log only to stderr.
 const log = (...args: unknown[]) => console.error("[suplente-tools]", ...args);
 
-interface CalendarEvent {
-  date: string;
-  time: string;
-  title: string;
-  attendees: string[];
-  location: string;
-}
-
-function isoDate(daysFromToday: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + daysFromToday);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
 // Simulated team calendar, relative to the day the server starts.
-const EVENTS: CalendarEvent[] = [
-  { date: isoDate(0), time: "10:00", title: "Daily del equipo", attendees: ["Equipo completo"], location: "Meet" },
-  { date: isoDate(1), time: "15:00", title: "Revisión del sprint", attendees: ["Equipo completo", "Laura (Product Owner)"], location: "Sala Andes" },
-  { date: isoDate(2), time: "11:30", title: "Reunión con el cliente: avance del proyecto", attendees: ["Laura", "Martín"], location: "Meet" },
-  { date: isoDate(3), time: "09:30", title: "Planificación del próximo sprint", attendees: ["Equipo completo"], location: "Sala Andes" },
-  { date: isoDate(4), time: "16:00", title: "Retrospectiva", attendees: ["Equipo completo"], location: "Meet" },
-  { date: isoDate(6), time: "14:00", title: "Sesión de onboarding para nuevas incorporaciones", attendees: ["Sofía", "Martín"], location: "Sala Patagonia" },
-];
+const EVENTS = buildCalendar();
 
 const server = new McpServer({ name: "suplente-tools", version: "1.0.0" });
 
@@ -40,10 +20,8 @@ server.registerTool(
     }),
   },
   async ({ fecha }) => {
-    const today = isoDate(0);
-    const events = fecha ? EVENTS.filter((e) => e.date === fecha) : EVENTS.filter((e) => e.date >= today);
-    log(`consultar_calendario fecha=${fecha ?? "(próximos)"} -> ${events.length} eventos`);
-    const payload = { hoy: today, fecha: fecha ?? null, eventos: events };
+    const payload = listCalendarEvents(EVENTS, fecha);
+    log(`consultar_calendario fecha=${fecha ?? "(próximos)"} -> ${payload.eventos.length} eventos`);
     return { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }] };
   },
 );
@@ -59,23 +37,7 @@ server.registerTool(
     }),
   },
   async ({ destinatario, asunto, puntos }) => {
-    const items = (Array.isArray(puntos) ? puntos : [puntos]).map((p) => p.trim()).filter(Boolean);
-    const body = items.length === 1 ? items[0] : items.map((p) => `- ${p}`).join("\n");
-    const draft = [
-      "[BORRADOR - NO ENVIADO]",
-      `Para: ${destinatario}`,
-      `Asunto: ${asunto}`,
-      "",
-      `Hola ${destinatario}:`,
-      "",
-      "Te escribo para comentarte lo siguiente:",
-      body,
-      "",
-      "La persona responsable se encuentra ausente; este mensaje fue redactado por su suplente digital y queda pendiente de revisión antes de enviarse.",
-      "",
-      "Saludos,",
-      "Suplente digital del equipo",
-    ].join("\n");
+    const draft = buildDraft({ destinatario, asunto, puntos });
     log(`redactar_borrador destinatario=${destinatario}`);
     return { content: [{ type: "text", text: draft }] };
   },
