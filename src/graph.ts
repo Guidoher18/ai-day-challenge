@@ -1,6 +1,8 @@
 import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
+import { HumanMessage, SystemMessage, ToolMessage, type BaseMessage } from "@langchain/core/messages";
 import { llm } from "./llm.js";
 import { logInteraction, type Route } from "./log.js";
+import { getMcpTools } from "./mcp/client.js";
 import { retrieve } from "./rag/retriever.js";
 
 // Observed cosine scores: relevant 0.85-0.91, off-topic ~0.81.
@@ -73,12 +75,51 @@ ${context.join("\n\n")}`,
   return { context, answer, escalated: false };
 }
 
-// Placeholder until step 4 wires real tools (MCP).
-async function execute(_state: GraphState): Promise<Partial<GraphState>> {
-  return {
-    answer: "La acción solicitada quedó registrada como pendiente y se ejecutará cuando la persona responsable esté disponible.",
-    escalated: true,
-  };
+const MAX_TOOL_ITERATIONS = 3;
+
+function executePrompt(): string {
+  // Local date (YYYY-MM-DD), consistent with the calendar tool.
+  const today = new Date().toLocaleDateString("en-CA");
+  return `Sos el suplente digital de un equipo cuya persona responsable está ausente. Hoy es ${today}.
+Usá las herramientas disponibles para resolver el pedido:
+- consultar_calendario para cualquier consulta sobre reuniones, eventos o agenda del equipo.
+- redactar_borrador para redactar mensajes o emails.
+Después de usar las herramientas, respondé en español, de forma breve y profesional, resumiendo el resultado.
+Si redactaste un borrador, incluí el texto completo del borrador en tu respuesta.`;
+}
+
+async function execute(state: GraphState): Promise<Partial<GraphState>> {
+  const failure = (reason: string) => ({ escalationReason: reason });
+  try {
+    const tools = await getMcpTools();
+    const toolsByName = new Map(tools.map((t) => [t.name, t]));
+    const model = llm.bindTools(tools);
+    const messages: BaseMessage[] = [new SystemMessage(executePrompt()), new HumanMessage(state.question)];
+    let toolsUsed = 0;
+
+    for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
+      const response = await model.invoke(messages);
+      messages.push(response);
+      const calls = response.tool_calls ?? [];
+      if (!calls.length) {
+        const answer = response.text.trim();
+        if (!toolsUsed || !answer) break;
+        return { answer, escalated: false };
+      }
+      for (const call of calls) {
+        const tool = toolsByName.get(call.name);
+        if (!tool) return failure(`no se encontró la herramienta solicitada (${call.name})`);
+        const output = await tool.invoke(call.args);
+        const content = typeof output === "string" ? output : JSON.stringify(output);
+        messages.push(new ToolMessage({ content, tool_call_id: call.id ?? call.name, name: call.name }));
+        toolsUsed++;
+      }
+    }
+    return failure("no fue posible completar la acción solicitada de forma automática");
+  } catch (err) {
+    console.error("execute failed:", err instanceof Error ? err.message : err);
+    return failure("ocurrió un error al ejecutar la acción solicitada");
+  }
 }
 
 async function escalate(state: GraphState): Promise<Partial<GraphState>> {
@@ -102,7 +143,7 @@ export const graph = new StateGraph(State)
     return "respond";
   }, ["respond", "execute", "escalate"])
   .addConditionalEdges("respond", (s) => (s.answer ? END : "escalate"), ["escalate", END])
-  .addEdge("execute", END)
+  .addConditionalEdges("execute", (s) => (s.answer ? END : "escalate"), ["escalate", END])
   .addEdge("escalate", END)
   .compile();
 

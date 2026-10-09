@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import { answerQuestion } from "./graph.js";
+import { closeMcpClient, getMcpTools } from "./mcp/client.js";
 import { getVectorStore } from "./rag/ingest.js";
 import { retrieve } from "./rag/retriever.js";
 
@@ -37,6 +38,14 @@ app.post("/consulta", async (req, res) => {
 });
 
 await getVectorStore();
+const mcpTools = await getMcpTools();
+console.log(`MCP tools loaded: ${mcpTools.map((t) => t.name).join(", ")}`);
+
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.once(signal, () => {
+    closeMcpClient().finally(() => process.exit(0));
+  });
+}
 
 const port = Number(process.env.PORT ?? 3000);
 app.listen(port, () => {
