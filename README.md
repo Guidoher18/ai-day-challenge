@@ -31,6 +31,8 @@ flowchart TD
   H --> I[GET /traspaso]
 ```
 
+Las rutas de esta sección son relativas a `back/`.
+
 - **Orquestador** (`src/graph.ts`): un `StateGraph` de LangGraph.js con los nodos `classify`, `respond`, `execute` y `escalate`. Cada consulta queda registrada una sola vez en `src/log.ts`.
 - **RAG** (`src/rag/`):
   - Al arrancar, fragmenta los `.md` de `docs/` en partes de 500 caracteres con 80 de solapamiento.
@@ -61,6 +63,7 @@ Node.js + TypeScript (ESM) · Express · LangGraph.js · LangChain.js · `@model
 Requisitos: Node.js 20.10+ (probado con 24) y una API key de [OpenRouter](https://openrouter.ai/settings/keys).
 
 ```bash
+cd back
 npm install
 cp .env.example .env   # completar las variables
 npm run dev
@@ -115,15 +118,17 @@ En Windows con Git Bash, los acentos pueden llegar mal si el body va inline. En 
 ## Estructura
 
 ```
-src/
-├── server.ts        # Express y rutas
-├── llm.ts           # modelo vía OpenRouter
-├── graph.ts         # orquestador LangGraph.js
-├── handoff.ts       # resumen de traspaso
-├── log.ts           # registro de interacciones (en memoria)
-├── rag/             # embeddings, ingesta y búsqueda
-└── mcp/             # servidor MCP propio y cliente
-docs/                # base de conocimiento (inventada)
+back/                    # API (Node.js + TypeScript)
+├── src/
+│   ├── server.ts        # Express y rutas
+│   ├── llm.ts           # modelo vía OpenRouter
+│   ├── graph.ts         # orquestador LangGraph.js
+│   ├── handoff.ts       # resumen de traspaso
+│   ├── log.ts           # registro de interacciones (en memoria)
+│   ├── rag/             # embeddings, ingesta y búsqueda
+│   └── mcp/             # servidor MCP propio y cliente
+└── docs/                # base de conocimiento (inventada)
+front/                   # interfaz web (en desarrollo)
 ```
 
 ## Limitaciones conocidas
