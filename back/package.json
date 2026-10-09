@@ -24,6 +24,7 @@
   "homepage": "https://github.com/Guidoher18/ai-day-challenge#readme",
   "dependencies": {
     "@huggingface/transformers": "^4.3.1",
+    "@langchain/anthropic": "^1.5.12",
     "@langchain/classic": "^1.0.52",
     "@langchain/core": "^1.2.17",
     "@langchain/langgraph": "^1.4.21",

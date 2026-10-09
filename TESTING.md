@@ -107,6 +107,8 @@ No hace falta `.env`, backend levantado ni conexión a internet.
 |---|---|---|---|
 | BACK-LLM-01 | variables `LLM_*` y `OPENROUTER_*` definidas | se crea el modelo | se usan las `LLM_*` (modelo, clave, base URL) con `temperature: 0` |
 | BACK-LLM-02 | solo variables `OPENROUTER_*` | se crea el modelo | se usan las `OPENROUTER_*` y la base URL de OpenRouter |
+| BACK-LLM-03 | `LLM_PROVIDER=anthropic` y `ANTHROPIC_API_KEY` | se crea el modelo | se usa `ChatAnthropic` con `claude-opus-5-5`, esa clave y `maxTokens: 16000`, sin `temperature` |
+| BACK-LLM-04 | `LLM_PROVIDER=anthropic` con `LLM_MODEL` y `LLM_API_KEY` | se crea el modelo | `LLM_MODEL` y `LLM_API_KEY` reemplazan el modelo y la clave por defecto |
 
 ### Herramientas MCP (`test/mcp/tools.test.ts`, `test/mcp/server.integration.test.ts`)
 

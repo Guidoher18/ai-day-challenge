@@ -66,7 +66,7 @@ Las rutas de esta sección son relativas a `back/`.
 
 ## Cómo levantarlo
 
-Requisitos: Node.js 20.10+ (probado con 24) y una API key de un proveedor compatible con la API de OpenAI, por ejemplo [Google AI Studio](https://aistudio.google.com/apikey) u [OpenRouter](https://openrouter.ai/settings/keys).
+Requisitos: Node.js 20.10+ (probado con 24) y una API key de [Anthropic (Claude)](https://platform.claude.com) o de un proveedor compatible con la API de OpenAI, por ejemplo [Google AI Studio](https://aistudio.google.com/apikey) u [OpenRouter](https://openrouter.ai/settings/keys).
 
 ```bash
 cd back
@@ -85,6 +85,16 @@ LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
 LLM_API_KEY=AIza...
 LLM_MODEL=gemini-flash-latest
 ```
+
+Para usar **Claude**, definí `LLM_PROVIDER=anthropic`:
+
+```
+LLM_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+# LLM_MODEL=claude-opus-5-5   (opcional, es el valor por defecto)
+```
+
+Con Claude se usa `ChatAnthropic` (SDK oficial de Anthropic) con el *fallback* del lado del servidor activado. Es un servicio pago, sin cupo gratuito diario.
 
 Si `LLM_BASE_URL` no está definida, se usa OpenRouter (`https://openrouter.ai/api/v1`). Por compatibilidad, `OPENROUTER_API_KEY` y `OPENROUTER_MODEL` se usan cuando no hay `LLM_API_KEY` ni `LLM_MODEL`.
 
