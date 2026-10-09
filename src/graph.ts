@@ -24,7 +24,7 @@ type GraphState = typeof State.State;
 const CLASSIFY_PROMPT = `Sos el clasificador de un suplente digital que cubre a un equipo ausente.
 Elegí UNA ruta para la consulta:
 - responder: preguntas informativas sobre procedimientos del equipo (vacaciones, gastos, accesos, guardias, plantillas, a quién contactar).
-- ejecutar: pedidos de acciones concretas y simples (consultar el calendario, redactar un mensaje o un email).
+- ejecutar: pedidos de acciones concretas y simples: consultas sobre la agenda o el calendario del equipo (reuniones, eventos, qué hay hoy, mañana o esta semana) y pedidos de redactar un mensaje o un email.
 - escalar: aprobaciones de cualquier tipo, temas sensibles (RR. HH., sueldos, salud, legales, incidentes de seguridad, accesos a producción), decisiones de presupuesto, o cualquier tema fuera del ámbito del equipo.
 Respondé solo con una palabra: responder, ejecutar o escalar.`;
 

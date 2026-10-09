@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import { answerQuestion } from "./graph.js";
+import { buildHandoff } from "./handoff.js";
 import { closeMcpClient, getMcpTools } from "./mcp/client.js";
 import { getVectorStore } from "./rag/ingest.js";
 import { retrieve } from "./rag/retriever.js";
@@ -35,6 +36,10 @@ app.post("/consulta", async (req, res) => {
     console.error("POST /consulta failed:", err instanceof Error ? err.message : err);
     res.status(500).json({ error: "No se pudo procesar la consulta. Intentá nuevamente más tarde." });
   }
+});
+
+app.get("/traspaso", async (_req, res) => {
+  res.json(await buildHandoff());
 });
 
 await getVectorStore();
