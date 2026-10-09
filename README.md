@@ -143,18 +143,31 @@ curl localhost:3000/traspaso
 
 En Windows con Git Bash, los acentos pueden llegar mal si el body va inline. En ese caso conviene enviarlo desde un archivo UTF-8 con `--data-binary @consulta.json`.
 
+## Tests
+
+Ambas apps tienen tests automáticos con Vitest, deterministas y sin red: el LLM, el modelo de embeddings y el backend se simulan.
+
+```bash
+cd back && npm test    # grafo, API, traspaso, RAG, herramientas MCP
+cd front && npm test   # cliente de API y componentes
+```
+
+La estrategia y la lista de escenarios (Dado/Cuando/Entonces) están en [TESTING.md](TESTING.md).
+
 ## Estructura
 
 ```
 back/                    # API (Node.js + TypeScript)
 ├── src/
-│   ├── server.ts        # Express y rutas
+│   ├── app.ts           # Express y rutas
+│   ├── server.ts        # arranque (RAG, MCP, listen)
 │   ├── llm.ts           # modelo (proveedor compatible con OpenAI)
 │   ├── graph.ts         # orquestador LangGraph.js
 │   ├── handoff.ts       # resumen de traspaso
 │   ├── log.ts           # registro de interacciones (en memoria)
 │   ├── rag/             # embeddings, ingesta y búsqueda
-│   └── mcp/             # servidor MCP propio y cliente
+│   └── mcp/             # servidor MCP propio, lógica de herramientas y cliente
+├── test/                # tests (Vitest)
 └── docs/                # base de conocimiento (inventada)
 front/                   # interfaz web (Next.js)
 └── src/
@@ -183,7 +196,7 @@ front/                   # interfaz web (Next.js)
 
 **Calidad y operación**
 
-- **Tests:** tests automáticos del grafo con el LLM simulado (por ejemplo, con Vitest) y un set de preguntas de evaluación por ruta para calibrar el umbral de relevancia.
+- **Evaluación:** un set de preguntas de evaluación por ruta, contra el LLM real, para calibrar el umbral de relevancia (los tests automáticos actuales simulan el LLM).
 - **Registro persistente:** guardar las interacciones en una base de datos para que el traspaso sobreviva a los reinicios.
 - **Usuarios y permisos:** identificar quién consulta y restringir lo que el suplente puede responder o ejecutar según el rol.
 - **Deploy:** publicar el back y el front con las claves como variables de entorno de la plataforma.
