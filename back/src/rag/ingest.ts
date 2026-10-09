@@ -6,11 +6,14 @@ import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { LocalEmbeddings } from "./embeddings.js";
 
 const DOCS_DIR = path.resolve(process.cwd(), "docs");
+const SUPPORTED_EXTENSIONS = [".md", ".txt"];
 
 let vectorStorePromise: Promise<MemoryVectorStore> | undefined;
 
 async function loadDocuments(): Promise<Document[]> {
-  const files = (await readdir(DOCS_DIR)).filter((file) => file.endsWith(".md"));
+  const files = (await readdir(DOCS_DIR)).filter((file) =>
+    SUPPORTED_EXTENSIONS.includes(path.extname(file).toLowerCase()),
+  );
   return Promise.all(
     files.map(async (file) => {
       const content = await readFile(path.join(DOCS_DIR, file), "utf-8");
