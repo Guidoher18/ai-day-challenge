@@ -75,17 +75,33 @@ ${context.join("\n\n")}`,
   return { context, answer, escalated: false };
 }
 
-const MAX_TOOL_ITERATIONS = 3;
+// Allows lookup + action chains (e.g. lookup -> action) plus the final answer.
+const MAX_TOOL_ITERATIONS = 4;
+// Third-party tool responses can be large JSON; keep the free model's context small.
+const MAX_TOOL_OUTPUT_CHARS = 6000;
 
-function executePrompt(): string {
+// Guidance per tool; only the tools actually loaded are mentioned in the prompt.
+const TOOL_GUIDANCE: Record<string, string> = {
+  consultar_calendario: "consultar_calendario: reuniones, eventos o agenda del equipo.",
+  redactar_borrador: "redactar_borrador: redactar mensajes o emails.",
+};
+
+function executePrompt(toolNames: string[]): string {
   // Local date (YYYY-MM-DD), consistent with the calendar tool.
   const today = new Date().toLocaleDateString("en-CA");
+  const guidance = toolNames.map((name) => `- ${TOOL_GUIDANCE[name] ?? name}`).join("\n");
   return `Sos el suplente digital de un equipo cuya persona responsable está ausente. Hoy es ${today}.
 Usá las herramientas disponibles para resolver el pedido:
-- consultar_calendario para cualquier consulta sobre reuniones, eventos o agenda del equipo.
-- redactar_borrador para redactar mensajes o emails.
+${guidance}
 Después de usar las herramientas, respondé en español, de forma breve y profesional, resumiendo el resultado.
+Nunca inventes emails, horarios ni eventos: usá solo lo que devuelvan las herramientas.
 Si redactaste un borrador, incluí el texto completo del borrador en tu respuesta.`;
+}
+
+function truncate(content: string): string {
+  return content.length > MAX_TOOL_OUTPUT_CHARS
+    ? `${content.slice(0, MAX_TOOL_OUTPUT_CHARS)}\n[... resultado truncado]`
+    : content;
 }
 
 async function execute(state: GraphState): Promise<Partial<GraphState>> {
@@ -94,7 +110,7 @@ async function execute(state: GraphState): Promise<Partial<GraphState>> {
     const tools = await getMcpTools();
     const toolsByName = new Map(tools.map((t) => [t.name, t]));
     const model = llm.bindTools(tools);
-    const messages: BaseMessage[] = [new SystemMessage(executePrompt()), new HumanMessage(state.question)];
+    const messages: BaseMessage[] = [new SystemMessage(executePrompt(tools.map((t) => t.name))), new HumanMessage(state.question)];
     let toolsUsed = 0;
 
     for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
@@ -111,7 +127,7 @@ async function execute(state: GraphState): Promise<Partial<GraphState>> {
         if (!tool) return failure(`no se encontró la herramienta solicitada (${call.name})`);
         const output = await tool.invoke(call.args);
         const content = typeof output === "string" ? output : JSON.stringify(output);
-        messages.push(new ToolMessage({ content, tool_call_id: call.id ?? call.name, name: call.name }));
+        messages.push(new ToolMessage({ content: truncate(content), tool_call_id: call.id ?? call.name, name: call.name }));
         toolsUsed++;
       }
     }
