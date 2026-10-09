@@ -1,6 +1,7 @@
 import { Chat } from "@/components/Chat";
 import { HandoffPanel } from "@/components/HandoffPanel";
 import { Header } from "@/components/Header";
+import { SubstituteCard } from "@/components/SubstituteCard";
 
 export default function Home() {
   return (
@@ -8,7 +9,10 @@ export default function Home() {
       <Header />
       <div className="layout">
         <Chat />
-        <HandoffPanel />
+        <div className="sidebar">
+          <SubstituteCard />
+          <HandoffPanel />
+        </div>
       </div>
     </main>
   );

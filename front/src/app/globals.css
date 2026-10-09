@@ -81,6 +81,17 @@ body {
   gap: 1rem;
 }
 
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 0;
+}
+
+.sidebar > aside {
+  flex: 1;
+}
+
 @media (max-width: 800px) {
   .app {
     height: auto;
