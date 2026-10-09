@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express from "express";
+import { answerQuestion } from "./graph.js";
 import { getVectorStore } from "./rag/ingest.js";
 import { retrieve } from "./rag/retriever.js";
 
@@ -18,6 +19,21 @@ app.get("/buscar", async (req, res) => {
     return;
   }
   res.json({ query: q, results: await retrieve(q) });
+});
+
+app.post("/consulta", async (req, res) => {
+  const pregunta = typeof req.body?.pregunta === "string" ? req.body.pregunta.trim() : "";
+  if (!pregunta) {
+    res.status(400).json({ error: "Missing body field 'pregunta'" });
+    return;
+  }
+  try {
+    const { answer, route, escalated } = await answerQuestion(pregunta);
+    res.json({ respuesta: answer, ruta: route, escalada: escalated });
+  } catch (err) {
+    console.error("POST /consulta failed:", err instanceof Error ? err.message : err);
+    res.status(500).json({ error: "No se pudo procesar la consulta. Intentá nuevamente más tarde." });
+  }
 });
 
 await getVectorStore();
