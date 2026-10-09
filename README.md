@@ -1,6 +1,11 @@
 # ai-day-challenge
 
-**Suplente digital para tareas de rutina** | Un bot entrenado con el conocimiento de una persona o equipo que responde las dudas frecuentes o cubre tareas puntuales cuando esa persona no está disponible (vacaciones, licencia).
+**Suplente digital para tareas de rutina** | Un bot que cubre a una persona o equipo cuando no está disponible (vacaciones, licencia): responde dudas frecuentes consultando su base de conocimiento, ejecuta tareas puntuales con herramientas, escala lo que no debe resolver solo y, al volver la persona, le entrega un resumen de lo atendido.
+
+El proyecto tiene dos partes:
+
+- **`back/`**: la API del suplente (orquestador, RAG, MCP y traspaso).
+- **`front/`**: una interfaz web para conversar con el suplente y probar cada ruta.
 
 Challenge nivel **Practitioner** — charla *"Construyendo agentes: orquestadores, MCP y RAG"*.
 
@@ -40,8 +45,8 @@ Las rutas de esta sección son relativas a `back/`.
   - Los vectores se guardan en un vector store en memoria.
 - **MCP** (`src/mcp/`):
   - Servidor stdio propio (`suplente-tools`), que el servidor principal levanta como subproceso.
-  - Se conecta con `@langchain/mcp-adapters`, que permite sumar más servidores MCP en `src/mcp/client.ts`.
-  - El nodo `execute` hace tool calling con hasta 3 iteraciones.
+  - Se conecta con `@langchain/mcp-adapters`, que permite sumar más servidores MCP en `src/mcp/client.ts`. `suplente-tools` es obligatorio; si un servidor adicional falla al conectar, se omite con una advertencia y el back sigue funcionando.
+  - El nodo `execute` hace tool calling con hasta 4 iteraciones. El prompt describe solo las herramientas cargadas y los resultados se recortan a 6000 caracteres.
 - **Traspaso** (`src/handoff.ts`):
   - Cuenta las consultas por ruta y lista los pendientes.
   - Pide al modelo un resumen breve. Si el modelo no está disponible, usa un resumen fijo.
@@ -56,7 +61,8 @@ Las rutas de esta sección son relativas a `back/`.
 
 ## Stack
 
-Node.js + TypeScript (ESM) · Express · LangGraph.js · LangChain.js · `@modelcontextprotocol/server` · Transformers.js · OpenRouter (modelo gratuito).
+- **Back:** Node.js + TypeScript (ESM) · Express · LangGraph.js · LangChain.js · `@modelcontextprotocol/server` · Transformers.js · LLM vía API compatible con OpenAI (Google AI Studio u OpenRouter).
+- **Front:** Next.js (App Router) · React · TypeScript · CSS Modules.
 
 ## Cómo levantarlo
 
@@ -85,6 +91,23 @@ Si `LLM_BASE_URL` no está definida, se usa OpenRouter (`https://openrouter.ai/a
 El modelo tiene que soportar **tool calling**. Se probó con `gemini-flash-latest` (Google AI Studio) y con `nvidia/nemotron-3-super-120b-a12b:free` (OpenRouter). Los planes gratuitos tienen límites de pedidos por minuto y por día.
 
 El primer arranque descarga el modelo de embeddings, que tarda alrededor de un minuto. Los siguientes arranques tardan unos segundos.
+
+### Front
+
+Con el back corriendo, en otra terminal:
+
+```bash
+cd front
+npm install
+npm run dev   # http://localhost:3001
+```
+
+El front llama a `/api/*` y Next.js lo reenvía al back (`http://localhost:3000` por defecto, configurable con `BACKEND_URL`), así que no hace falta habilitar CORS. La pantalla tiene:
+
+- **Chat** con el suplente: cada respuesta indica su ruta (`responder`, `ejecutar` o `escalar`) y si quedó escalada. Incluye preguntas de ejemplo para probar cada ruta.
+- **Suplente de guardia**: tarjeta con la persona que está cubriendo.
+- **Traspaso**: genera el resumen con contadores por ruta y la lista de pendientes.
+- **Estado del back**: indicador en el encabezado.
 
 ## Endpoints
 
@@ -126,18 +149,48 @@ En Windows con Git Bash, los acentos pueden llegar mal si el body va inline. En 
 back/                    # API (Node.js + TypeScript)
 ├── src/
 │   ├── server.ts        # Express y rutas
-│   ├── llm.ts           # modelo vía OpenRouter
+│   ├── llm.ts           # modelo (proveedor compatible con OpenAI)
 │   ├── graph.ts         # orquestador LangGraph.js
 │   ├── handoff.ts       # resumen de traspaso
 │   ├── log.ts           # registro de interacciones (en memoria)
 │   ├── rag/             # embeddings, ingesta y búsqueda
 │   └── mcp/             # servidor MCP propio y cliente
 └── docs/                # base de conocimiento (inventada)
-front/                   # interfaz web (en desarrollo)
+front/                   # interfaz web (Next.js)
+└── src/
+    ├── app/             # página y estilos globales
+    ├── components/      # chat, traspaso, suplente de guardia, encabezado
+    └── lib/api.ts       # llamadas al back
 ```
+
+## Posibles evolutivos
+
+**Integraciones reales (nuevos servidores MCP)**
+
+- **Microsoft 365 / Teams:** consultar la disponibilidad de la persona, agendar reuniones de Teams y buscar contactos vía Microsoft Graph. Requiere una app registrada en Entra ID con consentimiento del tenant y login por *device code*, nunca con usuario y contraseña.
+- **Slack:** leer los canales del equipo (por ejemplo, `#rrhh` o `#anuncios`) para responder con contexto reciente, con un servidor MCP propio de solo lectura y una lista de canales permitidos. A futuro, avisar en un canal cada vez que se escala una consulta.
+
+**Herramientas actuales**
+
+- **Calendario:** consultar por rango de fechas ("esta semana") en lugar de un solo día.
+- **Borradores:** guardarlos para que aparezcan en el traspaso y la persona pueda revisarlos al volver; usar las plantillas de `docs/plantillas-de-respuesta.md` según el tipo de mensaje.
+
+**RAG**
+
+- **Documentos largos:** fragmentar por sección o artículo (por ejemplo, una ley) y recuperar más fragmentos, para que las respuestas no queden incompletas.
+- **Ingesta sin reiniciar:** un endpoint o un proceso que detecte documentos nuevos y los indexe en caliente.
+- **Persistencia:** un vector store persistente (por ejemplo, SQLite con extensión vectorial) para no recalcular los embeddings en cada arranque.
+
+**Calidad y operación**
+
+- **Tests:** tests automáticos del grafo con el LLM simulado (por ejemplo, con Vitest) y un set de preguntas de evaluación por ruta para calibrar el umbral de relevancia.
+- **Registro persistente:** guardar las interacciones en una base de datos para que el traspaso sobreviva a los reinicios.
+- **Usuarios y permisos:** identificar quién consulta y restringir lo que el suplente puede responder o ejecutar según el rol.
+- **Deploy:** publicar el back y el front con las claves como variables de entorno de la plataforma.
 
 ## Limitaciones conocidas
 
 - El registro y el vector store viven en memoria, así que se pierden al reiniciar el servidor.
 - Los eventos del calendario son simulados.
 - El umbral de relevancia (0.83) se calibró con pocas consultas.
+- Con planes gratuitos del LLM hay límites diarios y demoras puntuales; si se agota el cupo, las consultas fallan hasta que se reinicie o se cambie de proveedor.
